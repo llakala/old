@@ -7,7 +7,7 @@
   * consistently 2 milliseconds faster than the trivial solution - but far less
   * readable. For that reason, I recommend only using this version if you have
   * tens of thousands of files in your config. If not, use
-  * https://github.com/llakala/nixos/blob/5c6e729990e50610c0948c224eb231bf5848bb60/various/myLib/recursivelyImport.nix
+  * https://github.com/llakala/nixos/blob/043de9c4ba4e5f76c3828d248a9e34b422d9cf45/various/myLib/recursivelyImport.nix
 */
 
 let
