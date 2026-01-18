@@ -37,6 +37,9 @@ let
     let
       len = stringLength path;
     in
+    # nixpkgs has a file literally named `0`, so we needed a check for len not
+    # being too small. If you're crazy and copying this, you can probably remove
+    # the len < 4 and save some jmps.
     if len < 4 then false else substring (len - 4) len path == ".nix";
 
 in
