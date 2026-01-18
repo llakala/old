@@ -1,5 +1,3 @@
-{ lib }:
-
 /*
   * DON'T USE THIS!!!!!
   * This code is unnecessarily optimized for speed. When benchmarking how long
@@ -7,41 +5,57 @@
   * consistently 2 milliseconds faster than the trivial solution - but far less
   * readable. For that reason, I recommend only using this version if you have
   * tens of thousands of files in your config. If not, use
-  * https://github.com/llakala/nixos/blob/043de9c4ba4e5f76c3828d248a9e34b422d9cf45/various/myLib/recursivelyImport.nix
+  * https://github.com/llakala/synaptic-standard/blob/6a63d53763c3eea5ca6590b10b5bb2d57119af0d/demo/recursivelyImport.nix
 */
 
 let
-  inherit (lib) mapAttrsToList flatten;
-  inherit (builtins) isPath filter readDir stringLength substring readFileType;
+  inherit (builtins) isPath readDir stringLength substring readFileType attrNames concatMap;
 
-  # Don't touch any files or modules in the list. We only do this once for the
-  # list passed in, since expandFolder is recursive, and shouldn't have to check
-  # for non-files on every expansion
-  mapElem = elem:
-    if !isPath elem || readFileType elem != "directory"
-    then elem
-    else expandFolder elem;
-
-  # Slightly modified version of `lib.filesystem.listFilesRecursive`. we remove
-  # the `lib.flatten` call, and instead only run it once at the end
-  expandFolder = folder:
-    mapAttrsToList (name: type:
-      let subpath = folder + "/${name}"; in
-      if type == "directory" then
+  # Modified version of `lib.filesystem.listFilesRecursive`, that's more
+  # optimized and filters for nix files on every recursive call
+  expandFolder =
+    folder:
+    let
+      contents = readDir folder;
+    in
+    concatMap (
+      name:
+      let
+        subpath = folder + "/${name}";
+        type = contents.${name};
+      in
+      if type == "regular" && isNixFile name then
+        [ subpath ]
+      else if type == "directory" then
         expandFolder subpath
-      else subpath
-    ) (readDir folder);
+      else
+        []
+    ) (attrNames contents);
 
-  isNixFile = path: let
-    lenContent = stringLength path;
-  in
-    substring (lenContent - 4) lenContent path == ".nix";
+  isNixFile =
+    path:
+    let
+      len = stringLength path;
+    in
+    if len < 4 then false else substring (len - 4) len path == ".nix";
 
 in
-  paths: filter
-    # Filter out any path that doesn't look like `*.nix`. Make sure to use
-    # toString, otherwise we end up copying to the store!
-    (elem: !isPath elem || isNixFile (toString elem))
-    # Flatten at the end, since expandFolder returns a list of files for every
-    # folder
-    (flatten (map mapElem paths))
+# Given the original list of modules:
+# 1. don't change any non-paths
+# 3. expand any folders into the nix files within them
+# 2. filter out any non-nix regular files
+paths:
+concatMap (
+  elem:
+  let
+    type = readFileType elem;
+  in
+  if !isPath elem then
+    [ elem ]
+  else if type == "directory" then
+    expandFolder elem
+  else if type == "regular" && isNixFile (toString elem) then
+    [ elem ]
+  else
+    []
+) paths
